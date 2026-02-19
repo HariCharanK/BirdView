@@ -109,8 +109,13 @@ class BirdViewClient:
             for t in response.includes.get("tweets", []):
                 ref_tweets[t.id] = t
 
+        # Handle single tweet responses (e.g., get_tweet)
+        data = response.data
+        if not isinstance(data, list):
+            data = [data]
+
         tweets = []
-        for t in response.data:
+        for t in data:
             author = users.get(t.author_id)
             handle = author.username if author else "unknown"
             name = author.name if author else "Unknown"
@@ -224,7 +229,7 @@ class BirdViewClient:
         """Search recent tweets."""
         resp = self._client.search_recent_tweets(
             query=query,
-            max_results=min(count, 100),
+            max_results=max(10, min(count, 100)),
             tweet_fields=TWEET_FIELDS,
             expansions=EXPANSIONS,
             user_fields=USER_FIELDS,
