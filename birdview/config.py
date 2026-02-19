@@ -7,17 +7,16 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 APP_DIR = Path.home() / ".birdview"
+CREDS_FILE = APP_DIR / "credentials.json"
 BOOKMARKS_FILE = APP_DIR / "bookmarks.json"
 
 REQUIRED_KEYS = [
-    "TWITTER_CONSUMER_KEY",
-    "TWITTER_CONSUMER_SECRET",
-    "TWITTER_BEARER_TOKEN",
-    "TWITTER_ACCESS_TOKEN",
-    "TWITTER_ACCESS_TOKEN_SECRET",
+    "consumer_key",
+    "consumer_secret",
+    "bearer_token",
+    "access_token",
+    "access_token_secret",
 ]
 
 
@@ -31,28 +30,62 @@ class TwitterCreds:
 
 
 def load_creds() -> TwitterCreds:
-    """Load Twitter API credentials from environment or ~/.env file."""
-    # Try ~/.env first, then .env in cwd
-    home_env = Path.home() / ".env"
-    if home_env.exists():
-        load_dotenv(home_env)
-    load_dotenv()  # .env in cwd (overrides if present)
+    """Load Twitter API credentials from ~/.birdview/credentials.json."""
+    if not CREDS_FILE.exists():
+        raise SystemExit(
+            f"Credentials not found at {CREDS_FILE}\n\n"
+            f"Run 'birdview init' to set up, or create the file manually:\n\n"
+            f"  mkdir -p ~/.birdview\n"
+            f"  cat > ~/.birdview/credentials.json << 'EOF'\n"
+            f"  {{\n"
+            f'    "consumer_key": "your_consumer_key",\n'
+            f'    "consumer_secret": "your_consumer_secret",\n'
+            f'    "bearer_token": "your_bearer_token",\n'
+            f'    "access_token": "your_access_token",\n'
+            f'    "access_token_secret": "your_access_token_secret"\n'
+            f"  }}\n"
+            f"  EOF\n"
+        )
 
-    missing = [k for k in REQUIRED_KEYS if not os.getenv(k)]
+    with open(CREDS_FILE) as f:
+        data = json.load(f)
+
+    missing = [k for k in REQUIRED_KEYS if not data.get(k)]
     if missing:
         raise SystemExit(
-            f"Missing Twitter credentials: {', '.join(missing)}\n"
-            f"Set them in ~/.env or as environment variables.\n"
+            f"Missing keys in {CREDS_FILE}: {', '.join(missing)}\n"
             f"Required: {', '.join(REQUIRED_KEYS)}"
         )
 
     return TwitterCreds(
-        consumer_key=os.environ["TWITTER_CONSUMER_KEY"],
-        consumer_secret=os.environ["TWITTER_CONSUMER_SECRET"],
-        bearer_token=os.environ["TWITTER_BEARER_TOKEN"],
-        access_token=os.environ["TWITTER_ACCESS_TOKEN"],
-        access_token_secret=os.environ["TWITTER_ACCESS_TOKEN_SECRET"],
+        consumer_key=data["consumer_key"],
+        consumer_secret=data["consumer_secret"],
+        bearer_token=data["bearer_token"],
+        access_token=data["access_token"],
+        access_token_secret=data["access_token_secret"],
     )
+
+
+def save_creds(
+    consumer_key: str,
+    consumer_secret: str,
+    bearer_token: str,
+    access_token: str,
+    access_token_secret: str,
+) -> Path:
+    """Save credentials to ~/.birdview/credentials.json."""
+    ensure_app_dir()
+    data = {
+        "consumer_key": consumer_key,
+        "consumer_secret": consumer_secret,
+        "bearer_token": bearer_token,
+        "access_token": access_token,
+        "access_token_secret": access_token_secret,
+    }
+    with open(CREDS_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+    CREDS_FILE.chmod(0o600)  # owner-only read/write
+    return CREDS_FILE
 
 
 def ensure_app_dir() -> Path:

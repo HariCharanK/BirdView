@@ -6,7 +6,7 @@ import click
 from rich.console import Console
 
 from . import __version__
-from .config import load_creds, load_bookmarks, remove_bookmark
+from .config import load_creds, load_bookmarks, remove_bookmark, save_creds
 from .client import BirdViewClient
 from .render import (
     render_tweet_list,
@@ -33,6 +33,24 @@ def _get_client() -> BirdViewClient:
 def main():
     """🐦 BirdView — Minimal terminal Twitter/X client."""
     pass
+
+
+@main.command()
+def init():
+    """Set up Twitter API credentials (interactive)."""
+    console.print("[bold]🐦 BirdView Setup[/bold]\n")
+    console.print("Enter your Twitter/X API credentials.\n")
+
+    consumer_key = click.prompt("Consumer Key")
+    consumer_secret = click.prompt("Consumer Secret")
+    bearer_token = click.prompt("Bearer Token")
+    access_token = click.prompt("Access Token")
+    access_token_secret = click.prompt("Access Token Secret")
+
+    path = save_creds(consumer_key, consumer_secret, bearer_token, access_token, access_token_secret)
+    console.print(f"\n[green]✓ Credentials saved to {path}[/green]")
+    console.print("[dim]File permissions set to owner-only (600).[/dim]")
+    console.print("\nTry: [bold]birdview whoami[/bold]")
 
 
 @main.command()

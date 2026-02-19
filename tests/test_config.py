@@ -3,7 +3,6 @@
 import json
 import os
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -12,6 +11,7 @@ from birdview.config import (
     save_bookmark,
     remove_bookmark,
     load_creds,
+    save_creds,
     REQUIRED_KEYS,
 )
 
@@ -22,6 +22,14 @@ def tmp_bookmarks(tmp_path, monkeypatch):
     monkeypatch.setattr("birdview.config.APP_DIR", tmp_path)
     monkeypatch.setattr("birdview.config.BOOKMARKS_FILE", tmp_path / "bookmarks.json")
     return tmp_path / "bookmarks.json"
+
+
+@pytest.fixture
+def tmp_creds(tmp_path, monkeypatch):
+    """Redirect credentials to a temp directory."""
+    monkeypatch.setattr("birdview.config.APP_DIR", tmp_path)
+    monkeypatch.setattr("birdview.config.CREDS_FILE", tmp_path / "credentials.json")
+    return tmp_path / "credentials.json"
 
 
 class TestBookmarks:
@@ -65,23 +73,34 @@ class TestBookmarks:
 
 
 class TestCredentials:
-    def test_missing_creds_exits(self, monkeypatch):
-        # Clear all env vars
-        for key in REQUIRED_KEYS:
-            monkeypatch.delenv(key, raising=False)
-        monkeypatch.setattr("birdview.config.load_dotenv", lambda *a, **kw: None)
-
-        with pytest.raises(SystemExit):
+    def test_missing_file_exits(self, tmp_creds):
+        with pytest.raises(SystemExit) as exc_info:
             load_creds()
+        assert "Credentials not found" in str(exc_info.value)
 
-    def test_loads_from_env(self, monkeypatch):
-        monkeypatch.setattr("birdview.config.load_dotenv", lambda *a, **kw: None)
-        monkeypatch.setenv("TWITTER_CONSUMER_KEY", "ck")
-        monkeypatch.setenv("TWITTER_CONSUMER_SECRET", "cs")
-        monkeypatch.setenv("TWITTER_BEARER_TOKEN", "bt")
-        monkeypatch.setenv("TWITTER_ACCESS_TOKEN", "at")
-        monkeypatch.setenv("TWITTER_ACCESS_TOKEN_SECRET", "ats")
+    def test_missing_keys_exits(self, tmp_creds):
+        tmp_creds.write_text(json.dumps({"consumer_key": "ck"}))
+        with pytest.raises(SystemExit) as exc_info:
+            load_creds()
+        assert "Missing keys" in str(exc_info.value)
 
+    def test_loads_from_file(self, tmp_creds):
+        data = {
+            "consumer_key": "ck",
+            "consumer_secret": "cs",
+            "bearer_token": "bt",
+            "access_token": "at",
+            "access_token_secret": "ats",
+        }
+        tmp_creds.write_text(json.dumps(data))
         creds = load_creds()
         assert creds.consumer_key == "ck"
         assert creds.bearer_token == "bt"
+
+    def test_save_and_load(self, tmp_creds, monkeypatch):
+        path = save_creds("ck", "cs", "bt", "at", "ats")
+        assert path.exists()
+        assert oct(path.stat().st_mode)[-3:] == "600"
+        creds = load_creds()
+        assert creds.consumer_key == "ck"
+        assert creds.access_token_secret == "ats"

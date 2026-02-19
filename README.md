@@ -10,14 +10,27 @@ pip install -e .
 
 ## Setup
 
-Create `~/.env` with your Twitter API credentials:
+```bash
+birdview init
+```
 
-```env
-TWITTER_CONSUMER_KEY=your_key
-TWITTER_CONSUMER_SECRET=your_secret
-TWITTER_BEARER_TOKEN=your_bearer_token
-TWITTER_ACCESS_TOKEN=your_access_token
-TWITTER_ACCESS_TOKEN_SECRET=your_access_token_secret
+This prompts for your Twitter API credentials and saves them to
+`~/.birdview/credentials.json` (owner-only permissions).
+
+Or create the file manually:
+
+```bash
+mkdir -p ~/.birdview
+cat > ~/.birdview/credentials.json << 'EOF'
+{
+  "consumer_key": "your_consumer_key",
+  "consumer_secret": "your_consumer_secret",
+  "bearer_token": "your_bearer_token",
+  "access_token": "your_access_token",
+  "access_token_secret": "your_access_token_secret"
+}
+EOF
+chmod 600 ~/.birdview/credentials.json
 ```
 
 ## Usage
