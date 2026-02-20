@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
@@ -18,6 +19,7 @@ TWEET_FIELDS = [
     "referenced_tweets",
     "entities",
     "in_reply_to_user_id",
+    "note_tweet",
 ]
 USER_FIELDS = ["username", "name", "public_metrics", "profile_image_url"]
 EXPANSIONS = [
@@ -96,6 +98,16 @@ class BirdViewClient:
             self._me = resp.data
         return self._me
 
+    @staticmethod
+    def _full_text(tweet) -> str:
+        """Extract full text, preferring note_tweet for long posts."""
+        note = getattr(tweet, "note_tweet", None)
+        if note and isinstance(note, dict) and note.get("text"):
+            text = note["text"]
+        else:
+            text = tweet.text
+        return html.unescape(text)
+
     def _parse_tweets(self, response: tweepy.Response) -> list[Tweet]:
         """Parse a tweepy Response into a list of Tweet objects."""
         if not response.data:
@@ -129,7 +141,7 @@ class BirdViewClient:
 
             # For retweets, get the original tweet's author
             retweeted_by = None
-            actual_text = t.text
+            actual_text = self._full_text(t)
             actual_handle = handle
             actual_name = name
             actual_metrics = metrics
@@ -145,7 +157,7 @@ class BirdViewClient:
                     if orig_author:
                         actual_handle = orig_author.username
                         actual_name = orig_author.name
-                    actual_text = orig.text
+                    actual_text = self._full_text(orig)
                     actual_metrics = orig.public_metrics or metrics
                     actual_id = str(orig.id)
                     actual_created = orig.created_at or t.created_at
@@ -168,7 +180,7 @@ class BirdViewClient:
                     qt_author = users.get(qt.author_id)
                     quoted_tweet = Tweet(
                         id=str(qt.id),
-                        text=qt.text,
+                        text=self._full_text(qt),
                         author_handle=qt_author.username if qt_author else "unknown",
                         author_name=qt_author.name if qt_author else "Unknown",
                         created_at=qt.created_at,
